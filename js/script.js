@@ -1,46 +1,119 @@
-let slideIndex = 0;
-let slides;
-let slideTimer;
+// Mobile nav toggle
+const menuBtn = document.getElementById('menuBtn');
+const nav = document.getElementById('nav');
+menuBtn?.addEventListener('click', () => {
+  const open = nav.classList.toggle('open');
+  menuBtn.setAttribute('aria-expanded', String(open));
+});
 
-function showSlides() {
-  slides = document.getElementsByClassName("slides");
+// Dropdown toggle for mobile (tap to open)
+function closeAllDropdowns() {
+  document.querySelectorAll('.mainnav li.has-dd.open').forEach(li => li.classList.remove('open'));
+}
+document.querySelectorAll('.mainnav li.has-dd > a').forEach(link => {
+  link.addEventListener('click', (e) => {
+    // Only intercept on mobile widths
+    if (window.innerWidth <= 920) {
+      e.preventDefault();
+      const li = link.parentElement;
+      const isOpen = li.classList.contains('open');
+      closeAllDropdowns();
+      if (!isOpen) li.classList.add('open');
+    }
+  });
+});
+// Close mobile dropdowns if clicking outside
+document.addEventListener('click', (e) => {
+  if (window.innerWidth > 920) return;
+  const navEl = document.querySelector('.navrow');
+  if (navEl && !navEl.contains(e.target)) closeAllDropdowns();
+});
 
-  for (let i = 0; i < slides.length; i++) {
-    slides[i].style.display = "none";
-  }
+// Simple Carousel
+const slides = Array.from(document.querySelectorAll('.slide'));
+const dotsWrap = document.getElementById('dots');
+const prev = document.getElementById('prev');
+const next = document.getElementById('next');
+const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  slideIndex++;
-  if (slideIndex > slides.length) {
-    slideIndex = 1;
-  }
+let idx = 0;
+let timer = null;
+const DURATION = 2000;
 
-  slides[slideIndex - 1].style.display = "block";
-  slideTimer = setTimeout(showSlides, 3000); // Auto-switch every 3 sec
+function renderDots() {
+  dotsWrap.innerHTML = '';
+  slides.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.className = 'dot' + (i === idx ? ' active' : '');
+    b.setAttribute('aria-label', `Go to slide ${i + 1}`);
+    b.addEventListener('click', () => go(i, true));
+    dotsWrap.appendChild(b);
+  });
 }
 
-function nextSlide() {
-  clearTimeout(slideTimer);
-  showSlide(slideIndex + 1);
+function go(newIdx, user = false) {
+  slides[idx].classList.remove('active');
+  idx = (newIdx + slides.length) % slides.length;
+  slides[idx].classList.add('active');
+  renderDots();
+  if (user) restart();
 }
 
-function prevSlide() {
-  clearTimeout(slideTimer);
-  showSlide(slideIndex - 1);
+function nextSlide() { go(idx + 1); }
+function prevSlide() { go(idx - 1, true); }
+
+function restart() {
+  if (timer) clearInterval(timer);
+  if (!prefersReduced) timer = setInterval(nextSlide, DURATION);
 }
 
-function showSlide(n) {
-  slides = document.getElementsByClassName("slides");
+next.addEventListener('click', () => go(idx + 1, true));
+prev.addEventListener('click', prevSlide);
 
-  for (let i = 0; i < slides.length; i++) {
-    slides[i].style.display = "none";
-  }
+// Pause on hover
+const carousel = document.querySelector('.carousel');
+carousel.addEventListener('mouseenter', () => timer && clearInterval(timer));
+carousel.addEventListener('mouseleave', restart);
 
-  slideIndex = n;
-  if (slideIndex > slides.length) { slideIndex = 1; }
-  if (slideIndex < 1) { slideIndex = slides.length; }
+// Keyboard controls
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') go(idx + 1, true);
+  if (e.key === 'ArrowLeft') go(idx - 1, true);
+});
 
-  slides[slideIndex - 1].style.display = "block";
-  slideTimer = setTimeout(showSlides, 3000);
-}
+// Init
+renderDots();
+restart();
 
-window.onload = showSlides;
+// Footer year
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// ===== FAQ: close others when one opens (optional) =====
+document.querySelectorAll('.faq .faq-item').forEach(d => {
+  d.addEventListener('toggle', () => {
+    if (d.open) {
+      document.querySelectorAll('.faq .faq-item').forEach(o => {
+        if (o !== d) o.open = false;
+      });
+    }
+  });
+});
+
+// Tiny toast for inline confirmations (used by contact form)
+(function(){
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.setAttribute('role','status');
+  t.setAttribute('aria-live','polite');
+  document.body.appendChild(t);
+
+  let tid = null;
+  document.addEventListener('toast', (e) => {
+    const msg = e.detail || 'Saved.';
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(tid);
+    tid = setTimeout(()=> t.classList.remove('show'), 2500);
+  });
+})();
+
